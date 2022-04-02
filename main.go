@@ -1,39 +1,48 @@
 package main
 
 import (
-	"html/template"
 	"net/http"
+	"time"
 )
 
-func index(w http.ResponseWriter, r *http.Request) {
-	files := []string{"templates/layout.html",
-		"templates/navbar.html",
-		"templates/index.html"}
-	templates := template.Must(template.ParseFiles(files...))
-	threads, err := data.Threads()
-	if err == nil {
-		templates.ExecuteTemplate(w, "layout", threads)
-	}
-}
-
 func main() {
+	p("ChitChat", version(), "started at", config.Address)
+
+	// handle static assets
 	mux := http.NewServeMux()
-	files := http.FileServer(http.Dir("/public"))
+	files := http.FileServer(http.Dir(config.Static))
 	mux.Handle("/static/", http.StripPrefix("/static/", files))
+
+	//
+	// all route patterns matched here
+	// route handler functions defined in other files
+	//
+
+	// index
 	mux.HandleFunc("/", index)
+	// error
 	mux.HandleFunc("/err", err)
+
+	// defined in route_auth.go
 	mux.HandleFunc("/login", login)
 	mux.HandleFunc("/logout", logout)
 	mux.HandleFunc("/signup", signup)
 	mux.HandleFunc("/signup_account", signupAccount)
 	mux.HandleFunc("/authenticate", authenticate)
+
+	// defined in route_thread.go
 	mux.HandleFunc("/thread/new", newThread)
 	mux.HandleFunc("/thread/create", createThread)
 	mux.HandleFunc("/thread/post", postThread)
 	mux.HandleFunc("/thread/read", readThread)
+
+	// starting up the server
 	server := &http.Server{
-		Addr:    "0.0.0.0:8080",
-		Handler: mux,
+		Addr:           config.Address,
+		Handler:        mux,
+		ReadTimeout:    time.Duration(config.ReadTimeout * int64(time.Second)),
+		WriteTimeout:   time.Duration(config.WriteTimeout * int64(time.Second)),
+		MaxHeaderBytes: 1 << 20,
 	}
 	server.ListenAndServe()
 }
